@@ -26,17 +26,18 @@ class Model:
 
 models = [
     #Model("Damenboerse_ohneStrass_fixed", [ 49, 538],  66, 72),
-    Model("111520_066_99ini",             [211, 579], 122, 40),
-    Model("112150_002_99ini",             [ 92, 696],  74, 79),
-    Model("116490_007_99ini",             [169, 440], 106, 40),
-    Model("116585_045_99ini",             [138, 442],  75, 77),
-    Model("118102_007_99ini",             [308, 692],  47, 71),
-    Model("118103_045_99ini",             [434, 581],  30, 84),
-    Model("118104_066_99ini",             [298, 856],  42, 84)
+    #      Artikel                         X    Y     H    Steine
+    Model("IN111520",             [211, 580], 121, 40), # OK
+    Model("IN112150",             [125, 699],  63, 87), # OK
+    Model("IN116490",             [171, 440], 103, 50), # OK
+    Model("IN116585",             [176, 457],  70, 76), # OK
+    Model("IN118102",             [384, 732],  50, 74), # OK
+    Model("IN118103",             [280, 533],  44, 84),
+    Model("IN118104",             [337, 863],  42, 84)
     ]
 
 # stone_type_list = ["1088_DenimBlue266_enh"]
-# stone_type_list = ["1088_001Crystal_R", "1088_DenimBlue266"]
+# stone_type_list = ["1088_001Crystal_R"]
 stone_type_list = ["1088_BlackDiamond215", "1088_001Crystal_R", "1088_DenimBlue266", "1088_DenimBlue266_enh", "1088_Greige284", "1088_Rose209"]
 
 
@@ -285,15 +286,17 @@ def main():
     #prepare shine dict
     glows, glow_sizes = split_shine(img_shine)
     for model in models:
-        wallet_img_url = "https://raw.githubusercontent.com/baeldin/strass_preview_generator/main/models/{:s}.png".format(model.name)
-        img_wallet = download_img(wallet_img_url)
         model_subdir = "img_out/{:s}/".format(model.name)
         if not os.path.isdir(model_subdir):
             os.system("mkdir -p "+model_subdir)
-        os.system("mv {:s}.png img_out/{:s}/.".format(model.name, model.name))
+        for col in ['002', '007', '045', '066']:
+            model_with_color = model.name + "_{:s}".format(col)
+            wallet_img_url = "https://raw.githubusercontent.com/baeldin/strass_preview_generator/main/models/{:s}.jpg".format(model_with_color)
+            img_wallet = download_img(wallet_img_url)
+            os.system("mv {:s}.jpg {:s}/.".format(model_with_color, model_subdir))
         need_bg = True
         for stone_type in stone_type_list:
-            output_subdir = "img_out/{:s}/{:s}/".format(model.name, stone_type)
+            output_subdir = "{:s}/{:s}/".format(model_subdir, stone_type)
             if not os.path.isdir(output_subdir):
                 os.system("mkdir -p "+output_subdir)
             stone_img_url = "https://raw.githubusercontent.com/baeldin/strass_preview_generator/main/stones/{:s}.png".format(
@@ -354,7 +357,7 @@ def main():
                     letter2_scaled_halo, glows, letter2_start, letter2_scaled.size,
                     coords_right[ii], stone_size, glow_sizes)
                 save_image(img_glow, output_subdir + "r_{:02d}.png".format(ii))
-    os.system('cp -R img_out ../../../sf_share/.')
+    os.system('cp -R img_out ../../../sf_share/')
 
 if __name__ == "__main__":
     main()
