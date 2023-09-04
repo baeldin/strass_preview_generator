@@ -8,6 +8,7 @@ import copy
 from PIL import Image
 import time
 import os
+import subprocess
 import pandas as pd
 
 
@@ -28,18 +29,20 @@ models = [
     #Model("Damenboerse_ohneStrass_fixed", [ 49, 538],  66, 72),
     #      Artikel                         X    Y     H    Steine
     Model("IN111520",             [211, 580], 121, 40), # OK
-    Model("IN112150",             [125, 699],  63, 87), # OK
-    Model("IN116490",             [171, 440], 103, 50), # OK
-    Model("IN116585",             [176, 457],  70, 76), # OK
-    Model("IN118102",             [384, 732],  50, 74), # OK
-    Model("IN118103",             [280, 533],  44, 84),
-    Model("IN118104",             [337, 863],  42, 84)
+    # Model("IN112150",             [125, 699],  63, 87), # OK
+    # Model("IN116490",             [171, 440], 103, 50), # OK
+    # Model("IN116585",             [176, 457],  70, 76), # OK
+    # Model("IN118102",             [384, 732],  50, 74), # OK
+    # Model("IN118103",             [280, 533],  44, 84),
+    # Model("IN118104",             [337, 863],  42, 84)
     ]
 
 # stone_type_list = ["1088_DenimBlue266_enh"]
-# stone_type_list = ["1088_001Crystal_R"]
-stone_type_list = ["1088_BlackDiamond215", "1088_001Crystal_R", "1088_DenimBlue266", "1088_DenimBlue266_enh", "1088_Greige284", "1088_Rose209"]
+stone_type_list = ["1088_001Crystal_R"]
 
+# stone_type_list = ["1088_BlackDiamond215", "1088_001Crystal_R", "1088_DenimBlue266", "1088_DenimBlue266_enh", "1088_Greige284", "1088_Rose209"]
+band_bg_colors = ["002", "007", "045", "066"]
+adjust_letter_spacing = True
 
 def sRGB_to_linear(img):
     wasImage = False
@@ -69,7 +72,7 @@ def linear_to_sRGB(img):
         return (data * 255.).astype(np.unit8)
 
 
-def draw_diagnostic_halo(img):
+def draw_debug_halo(img):
     nx, ny = img.size
     for yy in [0, ny-1]:
         for xx in range(nx):
@@ -79,20 +82,65 @@ def draw_diagnostic_halo(img):
             img.putpixel((xx, yy), (0, 255, 0, 255))
     return img
 
-def download_img(urlstring):
-    print("Downloading ", urlstring)
-    urllib.request.urlretrieve(urlstring, urlstring.split("/")[-1])
-    img = Image.open(urlstring.split("/")[-1])
-    return sRGB_to_linear(img)
+
+def make_debug_square(N, col=(0, 255, 0, 255)):
+    debug_square_arr = np.zeros((N, N, 4), dtype=np.uint8)
+    for ic, c in enumerate(col):
+        debug_square_arr[:, :, ic] = c
+    return Image.fromarray(debug_square_arr)
+
+
+def make_debug_cross(N, col=(0, 255, 0, 255)):
+    debug_cross_arr = np.zeros((N, N, 4), dtype=np.uint8)
+    t1 = int( 9*N/20)
+    t2 = int(11*N/20)
+    for ic, c in enumerate(col):
+        debug_cross_arr[t1:t2, :, ic] = c
+        debug_cross_arr[:, t1:t2, ic] = c
+    return Image.fromarray(debug_cross_arr)
+
+
+def get_parent_directory():
+    full_path = __file__
+    return full_path.replace("app/strass_band_generator_v2.py", "")
+
+
+def download_img(urlstring, local_img_path):
+    print("Downloading ", urlstring, " to ", local_img_path)
+    urllib.request.urlretrieve(urlstring, local_img_path)
+    time.sleep(1)
+    print(os.path.isfile(local_img_path))
+    img = sRGB_to_linear(Image.open(local_img_path))
+    return img
+
+
+def get_img(img_path):
+    parent_dir = get_parent_directory()
+    local_img_path = parent_dir + img_path
+    print("check for {:s}".format(local_img_path))
+    OK = False
+    if os.path.isfile(local_img_path):
+        print("Found, opening {:s}".format(local_img_path))
+        try:
+            img = sRGB_to_linear(Image.open(local_img_path))
+            OK = True
+        except:
+            raise
+            print("Opening {:s} failed, corrupt file? Falling back to download option.".format(local_img_path))
+            OK = False
+    if not OK or not img:
+        print("{:s} not found, downloading.".format(local_img_path))
+        img_url = "https://raw.githubusercontent.com/baeldin/strass_preview_generator/main/" + img_path
+        img = download_img(img_url, local_img_path)
+    return img, local_img_path
+
 
 def split_shine(img_shine, sizes = [30, 15, 7]):
     img_shine_ = copy.copy(img_shine)
-
     shine = []
     for ii in range(4):
         for jj in range(5):
             shine.append(img_shine.crop((100*ii, 100*jj, 100*(ii+1), 100*(jj+1))))
-
     shine_all = {}
     for size in sizes:
         shine_all[size] = []
@@ -124,7 +172,7 @@ def get_alphabet_coordinates():
     return letters_new
 
 
-def prepare_alphabet(img_stone, letter_coordinates, side):
+def prepare_alphabet_coordinates(img_stone, letter_coordinates, side):
     stone_size = img_stone.size[0] # must be square!!
     alphabet = []
     coords_all = []
@@ -135,41 +183,134 @@ def prepare_alphabet(img_stone, letter_coordinates, side):
         dimy = 5 * stone_size
         dimx = 1 + int(np.ceil(stone_size * (1 + letter_coordinates[draw][:,1].max()) - np.floor(letter_coordinates[draw][:,1].min())))
         dimx_max = dimx if dimx > dimx_max else dimx_max
-
+    img_dimensions = (dimy, dimx_max + stone_size, 4)
     for draw in alphabet_strings:
     # loop over stone coordinates in letter and add stones to image
         dimy = 5 * stone_size
         dimx = 1 + int(np.ceil(stone_size * (1 + letter_coordinates[draw][:,1].max()) - np.floor(letter_coordinates[draw][:,1].min())))
         dimx_offset = dimx_max - dimx
         padding_columns = int(np.floor(dimx_offset/float(stone_size)))
-        print("Offsettting " + draw + " by {:d} pixels, will insert {:d} solid columns".format(dimx_offset, padding_columns))
-        new_img = Image.fromarray(np.zeros((dimy, dimx_max + stone_size, 4), dtype=np.uint8))
+        print("Offsetting " + draw + " by {:d} pixels, will insert {:d} solid columns".format(dimx_offset, padding_columns))
         coords = []
         for dot in range(letter_coordinates[draw].shape[0]):
             doty, dotx = letter_coordinates[draw][dot, :]
+            yy = int(stone_size * doty)
             if side == 'left':
-                yy = int(stone_size * doty)
                 xx = int(stone_size * (dotx - 0.5)) + stone_size + dimx_offset
             elif side == 'right':
-                yy = int(stone_size * doty)
                 xx = int(stone_size * (dotx + 0.5))
             coords.append((yy, xx))
-            new_img.paste(img_stone, (xx, yy), mask=img_stone)
         for ii in range(padding_columns):
             for dot in range(letter_coordinates['I'].shape[0]):
                 doty, dotx = letter_coordinates['I'][dot, :]
+                yy = int(stone_size * doty)
                 if side == 'left':
-                    yy = int(stone_size * doty)
                     xx = int(stone_size * (ii + dotx))
                 elif side == 'right':
-                    yy = int(stone_size * doty)
                     xx = int(dimx_max + stone_size * (- ii + dotx) - 1)
                 coords.append((yy, xx))
-                new_img.paste(img_stone, (xx, yy), mask=img_stone)
-        alphabet.append(new_img)
-        linear_to_sRGB(new_img).save("test.png")
         coords_all.append(coords)
-    return alphabet, coords_all
+    return coords_all, img_dimensions
+
+
+def prepare_alphabet(img_stone, letter_pixel_coordinates, img_dimensions, side):
+    # print("making new img with dimensions ",*img_dimensions)
+    # print(letter_pixel_coordinates)
+    alphabet = []
+    for coords in letter_pixel_coordinates:
+        # print(coords)
+        new_img = Image.fromarray(np.zeros(img_dimensions, dtype=np.uint8))
+        for yy, xx in coords:
+            new_img.paste(img_stone, (xx, yy), mask=img_stone)
+        alphabet.append(new_img)
+    return alphabet
+
+
+def get_spaces(coords_all, side='left'):
+    max_spaces = []
+    for ii, coords in enumerate(coords_all):
+        y = [y[0] for y in coords]
+        x = [x[1] for x in coords]
+        end = len(x)
+        x_sorted = sorted(x)
+        dx = [x1 - x0 for x0, x1 in zip(x_sorted[0:end-1], x_sorted[1:end])]
+        if ii == 0 and side == 'right':
+            rightmost_x = np.max(x)
+            image_edge = rightmost_x + 25.
+        if ii == 22:
+            if side == 'left':
+                max_spaces.append(0.02 * (np.min(dx) + 25))
+            else:
+                max_spaces.append(0.02 * (image_edge - np.max(x) - 25))
+        else:
+            max_spaces.append(0.02 * (np.max(dx) - 50))
+    return max_spaces
+
+
+def get_padding_column_number(coords_all, side='left'):
+    padding_columns = []
+    for ii, coords in enumerate(coords_all):
+        if ii == 22:
+            padding_columns.append(0) # W has none
+        else:
+            x = np.array([x[1] for x in coords])
+            x_sorted = sorted(x)
+            end = len(x)
+            dx = [x1 - x0 for x0, x1 in zip(x_sorted[0:end-1], x_sorted[1:end])]
+            if side == 'right':
+                dx.reverse()
+            padding_columns.append(int((1 + np.argmax(dx)) / 5))
+            #print(bands.alphabet_strings[ii], np.max(dx), np.argmax(dx), (1 + np.argmax(dx)) / 5)
+    return padding_columns
+
+
+def weight_func(x, exponent=2.):
+    """x is an array with values between 0 and 1"""
+    x_left = np.sum(np.power(1 - x, exponent))
+    x_right = np.sum(np.power(x, exponent))
+    x_left, x_right = (x_left, x_right) / (x_left + x_right)
+    return x_right - x_left
+
+
+def letter_balance(coords_all, side='left'):
+    padding_columns = get_padding_column_number(coords_all, side=side)
+    letter_balance_values = []
+    for coords, pdc in zip(coords_all, padding_columns):
+        x = np.array([x[1] for x in coords])
+        n_dots_letter = len(x) - 5 * pdc
+        x = x[0:n_dots_letter]
+        if x.min() == x.max(): # add exception for I, which has all stones in one column
+            x_normalized = np.zeros(5) + 0.5
+        else:
+            x_normalized = (x - x.min()) / (x.max() - x.min())
+        letter_balance_values.append(weight_func(x_normalized))
+    return letter_balance_values
+
+        
+def adjust_spacing(coords_all, side='left', balance_adjustment_weight=0.5):
+    ii = 0
+    coords_all_new = []
+    padding_columns = get_padding_column_number(coords_all, side=side)
+    max_spaces = get_spaces(coords_all, side=side)
+    letter_balance_values = letter_balance(coords_all, side=side)
+    width_adjustment = []
+    balance_adjustment = []
+    for coords, pdc, offset, lbv in zip(coords_all, padding_columns, max_spaces, letter_balance_values):
+        x = [x[1] for x in coords]
+        y = [y[0] for y in coords]
+        x_new = np.zeros(len(x))
+        n_dots = len(x)
+        n_dots_letter = n_dots - 5 * pdc
+        move = (offset - 1.) * 0.3333333 * 50 if side == 'left' else - (offset - 1.) * 0.3333333 * 50
+        move2 = balance_adjustment_weight * lbv * 50
+        width_adjustment.append(move)
+        balance_adjustment.append(move2)
+        x_new[0:n_dots_letter] = np.array(x[0:n_dots_letter]) - move - move2
+        x_new[n_dots_letter:n_dots] = x[n_dots_letter:n_dots]
+        ii += 1
+        coords_new = [(y_, x_) for y_, x_ in zip(y, list(x_new.astype(int)))]
+        coords_all_new.append(coords_new)
+    return coords_all_new, width_adjustment, balance_adjustment
 
 
 def draw_alphabet(alphabet_images, name=""):
@@ -186,17 +327,12 @@ def draw_alphabet(alphabet_images, name=""):
     plt.close('all')
 
 
-
-
-
 def make_my_band(img_stone, stone_size, dimx_max, letter_coordinates, total_columns = 72, letter_indices = [0, 13]):
     dimy = 5 * stone_size
     letter_width = 2 * dimx_max + 3 * stone_size
     total_border = int(total_columns - letter_width / stone_size)
-
     left_space = int(np.floor(total_border/2))
     right_space = int(np.ceil(total_border/2))
-    total_width = total_border + letter_width
     def make_border(img_stone, N, dimy):
         coords = []
         border_img = Image.fromarray(np.zeros((dimy, int(N) * stone_size, 4), dtype=np.uint8))
@@ -208,25 +344,20 @@ def make_my_band(img_stone, stone_size, dimx_max, letter_coordinates, total_colu
                 coords.append((yy, xx))
                 border_img.paste(img_stone, (xx, yy), mask=img_stone)
         return border_img, coords
-
     left_border, coords_border_left = make_border(img_stone, left_space, dimy)
     right_border, coords_border_right = make_border(img_stone, right_space, dimy)
-    return left_border, right_border, coords_border_left, coords_border_right
+    full_band, coords_full = make_border(img_stone, total_columns - 4, dimy) # - 4 fixes length, TODO: fix fix requirement??
+    return left_border, right_border, full_band, coords_border_left, coords_border_right, coords_full
 
 
-
-
-def reshape_img_to_height(img, height, diagnostic_halo=False):
+def reshape_img_to_height(img, height, debug_halo=False):
     ix, iy = img.size
     scale_factor = float(height) / float(iy)
     small_dims = (int(ix * scale_factor), int(iy * scale_factor))
     img_smaller = img.resize(small_dims, Image.BICUBIC)
-    if diagnostic_halo:
-        img_smaller = draw_diagnostic_halo(img_smaller)
+    if debug_halo:
+        img_smaller = draw_debug_halo(img_smaller)
     return(img_smaller)
-
-
-
 
 
 def make_transparent_halo(img, place_xy, size=(1000, 1000)):
@@ -235,20 +366,35 @@ def make_transparent_halo(img, place_xy, size=(1000, 1000)):
     new_img.paste(img, copy.copy(place_xy), mask=img.convert("RGBA"))
     return new_img
 
+
+def adjust_band_ends_and_corners(img_band):
+    img_band_arr = np.array(img_band.convert("RGBA"))
+    xend, yend = img_band.size
+    corner_alpha_tl = np.array([[  0,  63, 127], [ 63, 195, 255], [127, 255, 255]])
+    img_band_arr[0:3, 0:3, 3] = corner_alpha_tl
+    img_band_arr[0:3, xend-3:xend, 3] = np.flip(corner_alpha_tl, axis=1)
+    img_band_arr[yend-3:yend, 0:3, 3] = np.flip(corner_alpha_tl, axis=0)
+    img_band_arr[yend-3:yend, xend-3:xend, 3] = np.flip(corner_alpha_tl, axis=(0, 1))
+    return Image.fromarray(img_band_arr)
+
+
 def make_band_background(img_band_base, width, height, coordinates_xy, total_size):
     img_height = reshape_img_to_height(img_band_base, height)
     img_height = img_height.crop((0, 0, width, height)) #.convert("RGBA")
+    img_height = adjust_band_ends_and_corners(img_height)
     img_halo = make_transparent_halo(img_height, coordinates_xy, total_size)
     return img_halo
+
 
 def place_glows(img, glows, offset_xy, old_img_dimensions, stone_coords, stone_size, glow_sizes):
     new_stone_size = old_img_dimensions[1] / 5.
     dot_scale_factor = 1. / stone_size * new_stone_size
-    max_displacement = int(new_stone_size * 0.35)
-    for dot_coords in stone_coords:
-        doty = int(dot_coords[0] * dot_scale_factor+ offset_xy[1])
+    max_displacement = int(new_stone_size * 0.2)
+    debug_square = make_debug_square(5)
+    for yy, xx in stone_coords:
+        doty = int((old_img_dimensions[1] - yy) * dot_scale_factor + offset_xy[1] + 2 * new_stone_size) #WTF?
         # dotx = int((4*stone_size - dot_coords[1]) * dot_scale_factor + offset_xy[0])
-        dotx = int(dot_coords[1] * dot_scale_factor + offset_xy[0])
+        dotx = int(xx * dot_scale_factor + offset_xy[0])
         x = dotx + np.random.randint(-max_displacement, max_displacement)
         y = doty + np.random.randint(-max_displacement, max_displacement)
         s = np.random.randint(0, 15)
@@ -261,10 +407,41 @@ def place_glows(img, glows, offset_xy, old_img_dimensions, stone_coords, stone_s
           siz = glow_sizes[0]
         else:
           continue
-        x += 7 - int(siz / 2)
-        y += 7 - int(siz / 2)
+        x += int(0.5 * new_stone_size - siz / 2)
+        y += int(0.5 * new_stone_size - siz / 2)
         img.paste(glows[siz][s], (x, y), mask=glows[siz][s])
+        # img.paste(debug_square, (x, y))
     return img
+
+
+def place_shadows(img, offset_xy, old_img_dimensions, stone_coords, stone_size, is_edge='False'):
+    shadow_size = 2.
+    new_stone_size = int(old_img_dimensions[1] / 5.)
+    new_stone_size_float = float(old_img_dimensions[1]) / 5.
+    img_shadow_arr = np.zeros((3*new_stone_size, 3*new_stone_size, 4), dtype=np.uint8)
+    img_shadows = sRGB_to_linear(Image.fromarray(np.zeros((*img.size, 4), dtype=np.uint8)))
+    # img_shadow_debug = make_debug_cross(3*new_stone_size)
+    xx, yy = np.meshgrid(np.linspace(-3, 3, num=3*new_stone_size), np.linspace(-3, 3, num=3*new_stone_size))
+    img_shadow_arr[:,:,3] = (np.exp(-(xx**2+yy**2)/shadow_size) * 255).astype(np.uint8)
+    img_shadow = sRGB_to_linear(Image.fromarray(img_shadow_arr))
+    dot_scale_factor = 1. / stone_size * new_stone_size_float
+    for yy, xx in stone_coords:
+        doty = int((old_img_dimensions[1] - yy) * dot_scale_factor + offset_xy[1] + 1.5 * new_stone_size_float) #WTF?
+        dotx = int(xx * dot_scale_factor + offset_xy[0])
+        x = dotx-new_stone_size
+        y = doty-new_stone_size
+        img_shadows.paste(img_shadow, (x, y), mask=img_shadow)
+        # img.paste(img_shadow_debug, (x, y), mask=img_shadow_debug)
+    img_shadows_arr = np.array(img_shadows)
+    img_shadows_arr[0:offset_xy[1], :, :] = 0
+    img_shadows_arr[offset_xy[1] + old_img_dimensions[1]:img_shadows.size[1], :, :] = 0
+    if 'left' in is_edge:
+        img_shadows_arr[:, 0:offset_xy[0] - int(0.25*new_stone_size), :] = 0
+    if 'right' in is_edge:
+        img_shadows_arr[:, offset_xy[0] + old_img_dimensions[0] + int(0.25*new_stone_size):img_shadows_arr.shape[1]-1, :] = 0
+    img_shadows = Image.fromarray(img_shadows_arr)
+    img_shadows.paste(img, (0, 0), mask=img)
+    return img_shadows
 
 
 def get_max_width(imgs):
@@ -279,10 +456,9 @@ def save_image(img, img_name):
     linear_to_sRGB(img).save(img_name)
 
 
-diagnostic_halo = False
+debug_halo = False
 def main():
-    img_shine = download_img("https://raw.githubusercontent.com/baeldin/strass_preview_generator/main/funkeln.png")
-    img_band_bg = download_img("https://raw.githubusercontent.com/baeldin/strass_preview_generator/main/models/alcantara_002.png")
+    img_shine, _ = get_img("funkeln.png")
     #prepare shine dict
     glows, glow_sizes = split_shine(img_shine)
     for model in models:
@@ -291,26 +467,32 @@ def main():
             os.system("mkdir -p "+model_subdir)
         for col in ['002', '007', '045', '066']:
             model_with_color = model.name + "_{:s}".format(col)
-            wallet_img_url = "https://raw.githubusercontent.com/baeldin/strass_preview_generator/main/models/{:s}.jpg".format(model_with_color)
-            img_wallet = download_img(wallet_img_url)
-            os.system("mv {:s}.jpg {:s}/.".format(model_with_color, model_subdir))
+            wallet_img_url = "models/{:s}.jpg".format(model_with_color)
+            img_wallet, img_wallet_path = get_img(wallet_img_url)
+            os.system("cp {:s} {:s}.".format(img_wallet_path, model_subdir))
         need_bg = True
         for stone_type in stone_type_list:
             output_subdir = "{:s}/{:s}/".format(model_subdir, stone_type)
             if not os.path.isdir(output_subdir):
                 os.system("mkdir -p "+output_subdir)
-            stone_img_url = "https://raw.githubusercontent.com/baeldin/strass_preview_generator/main/stones/{:s}.png".format(
+            stone_img_url = "stones/{:s}.png".format(
                 stone_type)
-            img_stone = download_img(stone_img_url) #.transpose(Image.FLIP_TOP_BOTTOM)
+            img_stone, _ = get_img(stone_img_url) #.transpose(Image.FLIP_TOP_BOTTOM)
         
             stone_size = img_stone.size[0] # must be square
 
             letter_coordinates = get_alphabet_coordinates()
-            alphabet_right, coords_right = prepare_alphabet(img_stone, letter_coordinates, 'right')
-            alphabet_left, coords_left = prepare_alphabet(img_stone, letter_coordinates, 'left')
+            letter_pixel_coordinates_left, img_dimensions_left = prepare_alphabet_coordinates(img_stone, letter_coordinates, 'left')
+            letter_pixel_coordinates_right, img_dimensions_right = prepare_alphabet_coordinates(img_stone, letter_coordinates, 'right')
+            if adjust_letter_spacing:
+                letter_pixel_coordinates_left, _, _ = adjust_spacing(letter_pixel_coordinates_left, side='left', balance_adjustment_weight=0.4)
+                letter_pixel_coordinates_right, _, _ = adjust_spacing(letter_pixel_coordinates_right, side='right', balance_adjustment_weight=0.4)
+            alphabet_left = prepare_alphabet(img_stone, letter_pixel_coordinates_left, img_dimensions_left, 'left')
+            alphabet_right = prepare_alphabet(img_stone, letter_pixel_coordinates_right, img_dimensions_right, 'right')
+
             dimx_max = np.max([get_max_width(alphabet_left), get_max_width(alphabet_right)])
 
-            band_left, band_right, coords_border_left, coords_border_right = make_my_band(img_stone, stone_size, dimx_max, 
+            band_left, band_right, band_full, coords_border_left, coords_border_right, coords_full = make_my_band(img_stone, stone_size, dimx_max, 
                 letter_coordinates, total_columns=model.band_columns)
 
             # do an initial resize to get dimensions:
@@ -326,36 +508,58 @@ def main():
             if need_bg:
                 total_band_width = img1.size[0] + img2.size[0] + img3.size[0] + img4.size[0] + int(0.5 * 0.2 * model.band_height)
                 bg_band_coordinates = [model.band_coordinates[0] - int(0.25 * 0.2 * model.band_height), model.band_coordinates[1]]
-                band_bg_current = make_band_background(img_band_bg, total_band_width, model.band_height, bg_band_coordinates, img_wallet.size)
-                save_image(band_bg_current, model_subdir + "band_bg_002.png")
+                for bg_col in band_bg_colors:
+                    url_band_bg = "models/Alcantara_{:s}.png"
+                    img_band_bg, _ = get_img(url_band_bg.format(bg_col))
+                    band_bg_current = make_band_background(img_band_bg, total_band_width, model.band_height, bg_band_coordinates, img_wallet.size)
+                    save_image(band_bg_current, model_subdir + "Alcantara_{:s}.png".format(bg_col))
                 need_bg = False
 
-            left_scaled = reshape_img_to_height(band_left.transpose(Image.FLIP_TOP_BOTTOM), model.band_height, diagnostic_halo=diagnostic_halo)
+            full_scaled = reshape_img_to_height(band_full.transpose(Image.FLIP_TOP_BOTTOM), model.band_height, debug_halo=debug_halo)
+            full_scaled_halo = make_transparent_halo(full_scaled, left_start, size=img_wallet.size)
+            full_scaled_shadows = place_shadows(
+                  full_scaled_halo, left_start, full_scaled.size, 
+                  coords_full, stone_size, is_edge='left right')
+            full_scaled_glow = place_glows(
+                  full_scaled_shadows, glows, left_start, full_scaled.size, 
+                  coords_full, stone_size, glow_sizes)
+            left_scaled = reshape_img_to_height(band_left.transpose(Image.FLIP_TOP_BOTTOM), model.band_height, debug_halo=debug_halo)
             left_scaled_halo = make_transparent_halo(left_scaled, left_start, size=img_wallet.size)
+            left_scaled_shadows = place_shadows(
+                  left_scaled_halo, left_start, left_scaled.size, 
+                  coords_border_left, stone_size, is_edge='left')
             left_scaled_glow = place_glows(
-                  left_scaled_halo, glows, left_start, left_scaled.size, 
-                  coords_border_left, stone_size, glow_sizes)
-            right_scaled = reshape_img_to_height(band_right.transpose(Image.FLIP_TOP_BOTTOM), model.band_height, diagnostic_halo=diagnostic_halo)
+                  left_scaled_shadows, glows, left_start, left_scaled.size, 
+                  coords_border_left, stone_size, glow_sizes)            
+            right_scaled = reshape_img_to_height(band_right.transpose(Image.FLIP_TOP_BOTTOM), model.band_height, debug_halo=debug_halo)
             right_scaled_halo = make_transparent_halo(right_scaled, right_start, size=img_wallet.size)
+            right_scaled_shadows = place_shadows(
+                  right_scaled_halo, right_start, right_scaled.size, 
+                  coords_border_right, stone_size, is_edge='right')
             right_scaled_glow = place_glows(
-                right_scaled_halo, glows, right_start, right_scaled.size, 
+                right_scaled_shadows, glows, right_start, right_scaled.size, 
                 coords_border_right, stone_size, glow_sizes)
+            save_image(full_scaled_glow, output_subdir + "full.png")
             save_image(left_scaled_glow, output_subdir + "left.png")
             save_image(right_scaled_glow, output_subdir + "right.png")
-
+# def place_shadows(img, offset_xy, old_img_dimensions, stone_coords, stone_size, is_edge='False'):
             for ii in range(len(alphabet_left)):
-                letter1_scaled = reshape_img_to_height(alphabet_left[ii].transpose(Image.FLIP_TOP_BOTTOM), model.band_height, diagnostic_halo=diagnostic_halo)
+                letter1_scaled = reshape_img_to_height(alphabet_left[ii].transpose(Image.FLIP_TOP_BOTTOM), model.band_height, debug_halo=debug_halo)
                 letter1_scaled_halo = make_transparent_halo(letter1_scaled, letter1_start, size=img_wallet.size)
+                img_shadows_halo = place_shadows(letter1_scaled_halo, letter1_start, letter1_scaled.size, 
+                    letter_pixel_coordinates_left[ii], stone_size)
                 img_glow = place_glows(
-                    letter1_scaled_halo, glows, letter1_start, letter1_scaled.size, 
-                    coords_left[ii], stone_size, glow_sizes)
+                    img_shadows_halo, glows, letter1_start, letter1_scaled.size, 
+                    letter_pixel_coordinates_left[ii], stone_size, glow_sizes)
                 save_image(img_glow, output_subdir + "l_{:02d}.png".format(ii))
                 # cv2.imwrite("img_out/l_{:02d}.png".format(ii), letter1_scaled_halo_glow)
-                letter2_scaled = reshape_img_to_height(alphabet_right[ii].transpose(Image.FLIP_TOP_BOTTOM), model.band_height, diagnostic_halo=diagnostic_halo)
+                letter2_scaled = reshape_img_to_height(alphabet_right[ii].transpose(Image.FLIP_TOP_BOTTOM), model.band_height, debug_halo=debug_halo)
                 letter2_scaled_halo = make_transparent_halo(letter2_scaled, letter2_start, size=img_wallet.size)
+                img_shadows_halo = place_shadows(letter2_scaled_halo, letter2_start, letter2_scaled.size, 
+                    letter_pixel_coordinates_right[ii], stone_size)
                 img_glow = place_glows(
-                    letter2_scaled_halo, glows, letter2_start, letter2_scaled.size,
-                    coords_right[ii], stone_size, glow_sizes)
+                    img_shadows_halo, glows, letter2_start, letter2_scaled.size,
+                    letter_pixel_coordinates_right[ii], stone_size, glow_sizes)
                 save_image(img_glow, output_subdir + "r_{:02d}.png".format(ii))
     os.system('cp -R img_out ../../../sf_share/')
 
