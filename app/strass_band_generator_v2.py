@@ -29,18 +29,19 @@ models = [
     #Model("Damenboerse_ohneStrass_fixed", [ 49, 538],  66, 72),
     #      Artikel                         X    Y     H    Steine
     Model("IN111520",             [211, 580], 121, 40), # OK
-    # Model("IN112150",             [125, 699],  63, 87), # OK
-    # Model("IN116490",             [171, 440], 103, 50), # OK
-    # Model("IN116585",             [176, 457],  70, 76), # OK
-    # Model("IN118102",             [384, 732],  50, 74), # OK
-    # Model("IN118103",             [280, 533],  44, 84),
-    # Model("IN118104",             [337, 863],  42, 84)
+    Model("IN112150",             [125, 699],  63, 87), # OK
+    Model("IN116490",             [171, 440], 103, 50), # OK
+    Model("IN116585",             [176, 457],  70, 76), # OK
+    Model("IN118102",             [384, 732],  50, 74), # OK
+    Model("IN118103",             [280, 533],  44, 84),
+    Model("IN118104",             [337, 863],  42, 84)
     ]
 
 # stone_type_list = ["1088_DenimBlue266_enh"]
 stone_type_list = ["1088_001Crystal_R"]
 
-# stone_type_list = ["1088_BlackDiamond215", "1088_001Crystal_R", "1088_DenimBlue266", "1088_DenimBlue266_enh", "1088_Greige284", "1088_Rose209"]
+stone_type_list = ["1088_BlackDiamond215", "1088_001Crystal_R", "1088_DenimBlue266", "1088_DenimBlue266_enh", "1088_Greige284", "1088_Rose209"]
+# stone_type_list = ["2038_215_FO_15_FV_PL", "2078_001_FO_10_FV_MI", "2038_DenimBlue_266", "2038_284_FO_15_FV_PL", "2038_209_FO_15_FV_PL"]
 band_bg_colors = ["002", "007", "045", "066"]
 adjust_letter_spacing = True
 
@@ -55,7 +56,7 @@ def sRGB_to_linear(img):
     if wasImage:
         return Image.fromarray((data * 255.).astype(np.uint8))
     else:
-        return (data * 255.).astype(np.unit8)
+        return (data * 255.).astype(np.uint8)
 
 
 def linear_to_sRGB(img):
@@ -69,7 +70,7 @@ def linear_to_sRGB(img):
     if wasImage:
         return Image.fromarray((data * 255.).astype(np.uint8))
     else:
-        return (data * 255.).astype(np.unit8)
+        return (data * 255.).astype(np.uint8)
 
 
 def draw_debug_halo(img):
@@ -92,8 +93,8 @@ def make_debug_square(N, col=(0, 255, 0, 255)):
 
 def make_debug_cross(N, col=(0, 255, 0, 255)):
     debug_cross_arr = np.zeros((N, N, 4), dtype=np.uint8)
-    t1 = int( 9*N/20)
-    t2 = int(11*N/20)
+    t1 = int(N/2)
+    t2 = int(N/2+1)
     for ic, c in enumerate(col):
         debug_cross_arr[t1:t2, :, ic] = c
         debug_cross_arr[:, t1:t2, ic] = c
@@ -151,8 +152,8 @@ def split_shine(img_shine, sizes = [30, 15, 7]):
 
 
 def get_alphabet_coordinates():
-    req = urllib.request.urlopen("https://raw.githubusercontent.com/baeldin/strass_preview_generator/main/Alphabet.asc")
-    df = pd.read_csv("https://raw.githubusercontent.com/baeldin/strass_preview_generator/main/Alphabet.asc", delimiter=";", header=None, skiprows=3)
+    # req = urllib.request.urlopen("https://raw.githubusercontent.com/baeldin/strass_preview_generator/main/Alphabet.asc")
+    df = pd.read_csv("../Alphabet.asc", delimiter=";", header=None, skiprows=3)
     leter_indices = {
         'A': [  0,   9], 'B': [ 47,  59], 'C': [ 10,  20], 'D': [151, 162], 'E': [163, 172], 'F': [173, 180], 
         'G': [181, 193], 'H': [194, 204], 'I': [ 60,  64], 'J': [ 21,  27], 'K': [ 94, 103], 'L': [269, 275], 
@@ -387,16 +388,20 @@ def make_band_background(img_band_base, width, height, coordinates_xy, total_siz
 
 
 def place_glows(img, glows, offset_xy, old_img_dimensions, stone_coords, stone_size, glow_sizes):
-    new_stone_size = old_img_dimensions[1] / 5.
-    dot_scale_factor = 1. / stone_size * new_stone_size
+    new_stone_size = float(old_img_dimensions[1]) / 5.
+    dot_scale_factor = float(new_stone_size) / float(stone_size)
     max_displacement = int(new_stone_size * 0.2)
-    debug_square = make_debug_square(5)
+    debug_square_r = make_debug_square(3, col=(255, 0, 0, 255))
+    debug_square_b = make_debug_square(3, col=(0, 255, 0, 255))
+    debug_square_g = make_debug_square(3, col=(0, 0, 255, 255))
     for yy, xx in stone_coords:
-        doty = int((old_img_dimensions[1] - yy) * dot_scale_factor + offset_xy[1] + 2 * new_stone_size) #WTF?
+        doty = offset_xy[1] + old_img_dimensions[1] - (yy + stone_size) * dot_scale_factor
         # dotx = int((4*stone_size - dot_coords[1]) * dot_scale_factor + offset_xy[0])
-        dotx = int(xx * dot_scale_factor + offset_xy[0])
-        x = dotx + np.random.randint(-max_displacement, max_displacement)
-        y = doty + np.random.randint(-max_displacement, max_displacement)
+        dotx = offset_xy[0] + xx * dot_scale_factor
+        # img.paste(debug_square_r, (int(dotx), int(doty)))
+        x = dotx + 0.5 * new_stone_size + np.random.randint(-max_displacement, max_displacement)
+        y = doty + 0.5 * new_stone_size + np.random.randint(-max_displacement, max_displacement)
+        # img.paste(debug_square_g, (int(x), int(y)))
         s = np.random.randint(0, 15)
         i = np.random.randint(0, 1000)
         if i > 993:
@@ -407,31 +412,31 @@ def place_glows(img, glows, offset_xy, old_img_dimensions, stone_coords, stone_s
           siz = glow_sizes[0]
         else:
           continue
-        x += int(0.5 * new_stone_size - siz / 2)
-        y += int(0.5 * new_stone_size - siz / 2)
-        img.paste(glows[siz][s], (x, y), mask=glows[siz][s])
-        # img.paste(debug_square, (x, y))
+        x += -int(siz / 2)
+        y += -int(siz / 2)
+        img.paste(glows[siz][s], (int(x), int(y)), mask=glows[siz][s])
+        # img.paste(debug_square_b, (int(x), int(y)))
     return img
 
 
 def place_shadows(img, offset_xy, old_img_dimensions, stone_coords, stone_size, is_edge='False'):
     shadow_size = 2.
-    new_stone_size = int(old_img_dimensions[1] / 5.)
-    new_stone_size_float = float(old_img_dimensions[1]) / 5.
-    img_shadow_arr = np.zeros((3*new_stone_size, 3*new_stone_size, 4), dtype=np.uint8)
+    new_stone_size = float(old_img_dimensions[1]) / 5.
+    new_stone_size_int = int(float(old_img_dimensions[1]) / 5.)
+    dot_scale_factor = float(new_stone_size) / float(stone_size)
+    img_shadow_arr = np.zeros((3*new_stone_size_int, 3*new_stone_size_int, 4), dtype=np.uint8)
     img_shadows = sRGB_to_linear(Image.fromarray(np.zeros((*img.size, 4), dtype=np.uint8)))
-    # img_shadow_debug = make_debug_cross(3*new_stone_size)
-    xx, yy = np.meshgrid(np.linspace(-3, 3, num=3*new_stone_size), np.linspace(-3, 3, num=3*new_stone_size))
+    img_shadow_debug = make_debug_cross(3*new_stone_size_int)
+    xx, yy = np.meshgrid(np.linspace(-3, 3, num=3*new_stone_size_int), np.linspace(-3, 3, num=3*new_stone_size_int))
     img_shadow_arr[:,:,3] = (np.exp(-(xx**2+yy**2)/shadow_size) * 255).astype(np.uint8)
     img_shadow = sRGB_to_linear(Image.fromarray(img_shadow_arr))
-    dot_scale_factor = 1. / stone_size * new_stone_size_float
     for yy, xx in stone_coords:
-        doty = int((old_img_dimensions[1] - yy) * dot_scale_factor + offset_xy[1] + 1.5 * new_stone_size_float) #WTF?
-        dotx = int(xx * dot_scale_factor + offset_xy[0])
-        x = dotx-new_stone_size
-        y = doty-new_stone_size
-        img_shadows.paste(img_shadow, (x, y), mask=img_shadow)
-        # img.paste(img_shadow_debug, (x, y), mask=img_shadow_debug)
+        doty = offset_xy[1] + old_img_dimensions[1] - (yy + stone_size) * dot_scale_factor
+        dotx = offset_xy[0] + xx * dot_scale_factor
+        x = dotx - new_stone_size
+        y = doty - new_stone_size
+        img_shadows.paste(img_shadow, (int(x), int(y)), mask=img_shadow)
+        # img.paste(img_shadow_debug, (int(x), int(y)), mask=img_shadow_debug)
     img_shadows_arr = np.array(img_shadows)
     img_shadows_arr[0:offset_xy[1], :, :] = 0
     img_shadows_arr[offset_xy[1] + old_img_dimensions[1]:img_shadows.size[1], :, :] = 0
