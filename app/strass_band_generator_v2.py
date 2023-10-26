@@ -21,6 +21,7 @@ alphabet_strings = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 
 class Model:
     def __init__(self, name, band_coordinates, band_height, band_columns, band_glow, band_raw):
         self.name = name
+        self.out_name = self.name.replace("IN", "")
         self.band_coordinates = band_coordinates
         self.band_height = int(float(band_height) / 5.5 * 5) if band_raw else band_height
         self.band_columns = band_columns
@@ -31,29 +32,60 @@ models = [
     #Model("Damenboerse_ohneStrass_fixed", [ 49, 538],  66, 72),
     #      Artikel                 X    Y     H    W    glow  raw
     # Model("IN111520",             [211, 580], 121, 40,  True, False), # OK
-    # Model("IN112150",             [125, 699],  63, 87,  True, False), # OK
-    # Model("IN116490",             [171, 440], 103, 50,  True, False), # OK
-    # Model("IN116585",             [176, 457],  70, 76,  True, False), # OK
-    # Model("IN118102",             [384, 732],  50, 74,  True, False), # OK
-    # Model("IN118103",             [280, 533],  44, 84,  True, False), # OK
-    # Model("IN118104",             [337, 863],  42, 84,  True, False), # OK
+    Model("IN112150",             [125, 699],  63, 87,  True, False), # OK
+    #Model("IN116490",             [171, 440], 103, 50,  True, False), # OK
+    #Model("IN116585",             [176, 457],  70, 76,  True, False), # OK
+    #Model("IN118102",             [384, 732],  50, 74,  True, False), # OK
+    #Model("IN118103",             [280, 533],  44, 84,  True, False), # OK
+#    Model("IN118104",             [337, 863],  42, 84,  True, False), # OK
     # Model("void",                 [ 50,  50], 130, 70, False,  True),
     # Model("void2",                [ 50,  50], 130, 80, False,  True),
-    Model("raw",                  [ 50,  50], 130, 87,  True,  True),
-    Model("raw_glow",             [ 50,  50], 130, 87, False,  True)
+    # Model("raw",                  [ 50,  50], 130, 87,  True,  True),
+    # Model("raw_glow",             [ 50,  50], 130, 87, False,  True)
     ]
 
-# stone_type_list = ["1088_DenimBlue266_enh"]
-# stone_type_list = ["1088_001Crystal_R"]
 
-stone_type_list = ["2078I_001LTCHZ_FV_PL", "1088_BlackDiamond215", "1088_001Crystal_R", "1088_DenimBlue266", "1088_DenimBlue266_enh", "1088_Greige284", "1088_Rose209"]
-# stone_type_list = ["1088_BlackDiamond215", "1088_001Crystal_R", "1088_DenimBlue266", "1088_DenimBlue266_enh", "1088_Greige284", "1088_Rose209"]
-# stone_type_list = ["2038_215_FO_15_FV_PL", "2078_001_FO_10_FV_MI", "2038_DenimBlue_266", "2038_284_FO_15_FV_PL", "2038_209_FO_15_FV_PL"]
-band_bg_colors = ["002", "007", "045", "066"]
-wallet_colors = ['002', '007']
-# wallet_colors = ['002', '007', '045', '066']
-# band_bg_colors = ["002"]
 adjust_letter_spacing = True
+
+#USE COLORS
+# 284 enh2
+# 215 enh3
+# 266 enh7
+# 001 OK
+# 204 enh7
+# A01 enh3
+# 261 OK
+# 219 enh3
+
+model_colors = {
+    "066": ["2038_219_FO_15_FV_PL_enh3"], # "2038_266_FO_15_FV_PL_enh7"], # "2038_284_FO_15_FV_PL_enh", "2038_284_FO_15_FV_PL_enh2", "2038_001_FO_15_FV_PL"], 
+    # "002": ["2038_215_FO_15_FV_PL_enh", "2038_266_FO_15_FV_PL_enh", "2038_284_FO_15_FV_PL_enh", "2038_209_FO_15_FV_PL_enh", "2038_001_FO_15_FV_PL"], 
+    # "007": ["2038_001_LTCH_FO_15_FV_PL1_enh3"], #, "2038_001_FO_15_FV_PL"] #, "2038_266_FO_15_FV_PL"], # both covered in 002
+    # "045": ["2038_215_FO_15_FV_PL_enh3"], # , "2038_001_FO_15_FV_PL", "2038_261_FO_15_FV_PL"], # covered in 002
+    # "066": ["2038_539_FO_15_FV_PL_enh", "2038_219_FO_15_FV_PL_enh"] # , "2038_001_FO_15_FV_PL" # covered in 002
+}
+
+crystal_numbers_to_names = {
+    "001": "crystal-r",
+    "A01": "light-chrome-crystal-r",
+    "209": "rose",
+    "213": "jonquil",
+    "215": "black-diamond",
+    "219": "iris",
+    "223": "light-rose-aurore-boreale",
+    "261": "light-silk",
+    "266": "denim-blue",
+    "283": "provence-lavender",
+    "284": "greige",
+    "539": "tanzanite"
+}
+
+
+def get_crystal_color_short(crystal_name_str):
+    crystal_number = crystal_name_str.split("_")[1]
+    return crystal_numbers_to_names[crystal_number]
+    # return crystal_number + "_" + crystal_numbers_to_names[crystal_number]
+
 
 def sRGB_to_linear(img):
     wasImage = False
@@ -125,7 +157,7 @@ def download_img(urlstring, local_img_path):
     return img
 
 
-def get_img(img_path):
+def get_img(img_path, linear=True):
     parent_dir = get_parent_directory()
     local_img_path = parent_dir + img_path
     print("check for {:s}".format(local_img_path))
@@ -133,7 +165,8 @@ def get_img(img_path):
     if os.path.isfile(local_img_path):
         print("Found, opening {:s}".format(local_img_path))
         try:
-            img = sRGB_to_linear(Image.open(local_img_path))
+            img = Image.open(local_img_path)
+            img = sRGB_to_linear(img) if linear else img
             OK = True
         except:
             raise
@@ -156,7 +189,7 @@ def split_shine(img_shine, sizes = [30, 15, 7]):
     for size in sizes:
         shine_all[size] = []
         for idx, sh in enumerate(shine):
-            shine_resized = sh.resize((size, size), Image.BICUBIC)
+            shine_resized = sh.resize((size, size), Image.Resampling.BICUBIC)
             shine_all[size].append(sRGB_to_linear(shine_resized))
     return shine_all, sizes
 
@@ -365,7 +398,7 @@ def reshape_img_to_height(img, height, debug_halo=False):
     ix, iy = img.size
     scale_factor = float(height) / float(iy)
     small_dims = (int(ix * scale_factor), int(iy * scale_factor))
-    img_smaller = img.resize(small_dims, Image.BICUBIC)
+    img_smaller = img.resize(small_dims, Image.Resampling.BICUBIC)
     if debug_halo:
         img_smaller = draw_debug_halo(img_smaller)
     return(img_smaller)
@@ -373,7 +406,7 @@ def reshape_img_to_height(img, height, debug_halo=False):
 
 def make_transparent_halo(img, place_xy, size=(1000, 1000)):
     new_img = Image.fromarray(np.zeros([size[1], size[0], 4], dtype=np.uint8))
-    img.save("testA.png")
+    # img.save("testA.png")
     new_img.paste(img, copy.copy(place_xy), mask=img.convert("RGBA"))
     return new_img
 
@@ -465,10 +498,10 @@ def place_shadows(img, offset_xy, old_img_dimensions, stone_coords, stone_size, 
     else:
         img_shadows_arr[:, offset_xy[0] + old_img_dimensions[0]:img_shadows_arr.shape[1]-1, :] = 0
     img_shadows = Image.fromarray(img_shadows_arr)
-    img_shadows.save("test_img_shadows.png")
-    img.save("test_img.png")
+    # img_shadows.save("test_img_shadows.png")
+    # img.save("test_img.png")
     img_shadows.paste(img, (0, 0), mask=img)
-    img_shadows.save("test_img_shadows2.png")
+    # img_shadows.save("test_img_shadows2.png")
     return img_shadows
 
 
@@ -479,9 +512,12 @@ def get_max_width(imgs):
     return nx_max
 
 
-def save_image(img, img_name):
+def save_image(img, img_name, unlinear=True):
     print("Saving ", img_name)
-    linear_to_sRGB(img).save(img_name)
+    if unlinear:
+        linear_to_sRGB(img).save(img_name)
+    else:
+        img.save(img_name)
 
 
 debug_halo = False
@@ -490,112 +526,134 @@ def main():
     #prepare shine dict
     glows, glow_sizes = split_shine(img_shine)
     for model in models:
-        model_subdir = "img_out/{:s}/".format(model.name)
+        model_subdir = "img_out/{:s}/".format(model.out_name)
         if not os.path.isdir(model_subdir):
             os.system("mkdir -p "+model_subdir)
-        for col in wallet_colors:
+        for col, stone_cols in model_colors.items():
+            print(f"Working on color {col}")
             model_with_color = model.name + "_{:s}".format(col)
             wallet_img_url = "models/{:s}.jpg".format(model_with_color)
-            img_wallet, img_wallet_path = get_img(wallet_img_url)
-            os.system("cp {:s} {:s}.".format(img_wallet_path, model_subdir))
-        need_bg = True
-        for stone_type in stone_type_list:
-            output_subdir = "{:s}/{:s}/".format(model_subdir, stone_type)
-            if not os.path.isdir(output_subdir):
-                os.system("mkdir -p "+output_subdir)
-            stone_img_url = "stones/{:s}.png".format(
-                stone_type)
-            img_stone, _ = get_img(stone_img_url) #.transpose(Image.FLIP_TOP_BOTTOM)
-        
-            stone_size = img_stone.size[0] # must be square
+            img_wallet, img_wallet_path = get_img(wallet_img_url, linear=False)
+            os.system("cp {:s} {:s}{:s}.jpg".format(img_wallet_path, model_subdir, model.out_name + col))
+            need_bg = True
+            for stone_type in stone_cols:
+                stone_name = get_crystal_color_short(stone_type)
+                output_subdir = model_subdir + "/" + stone_name
+                # output_subdir = "{:s}/{:s}/".format(model_subdir, stone_name)
+                if not os.path.isdir(output_subdir):
+                    os.system("mkdir -p "+output_subdir)
+                stone_img_url = "stones/{:s}.png".format(
+                    stone_type)
+                img_stone, _ = get_img(stone_img_url) #.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
+            
+                stone_size = img_stone.size[0] # must be square
 
-            letter_coordinates = get_alphabet_coordinates()
-            letter_pixel_coordinates_left, img_dimensions_left = prepare_alphabet_coordinates(img_stone, letter_coordinates, 'left')
-            letter_pixel_coordinates_right, img_dimensions_right = prepare_alphabet_coordinates(img_stone, letter_coordinates, 'right')
-            if adjust_letter_spacing:
-                letter_pixel_coordinates_left, _, _ = adjust_spacing(letter_pixel_coordinates_left, side='left', balance_adjustment_weight=0.4)
-                letter_pixel_coordinates_right, _, _ = adjust_spacing(letter_pixel_coordinates_right, side='right', balance_adjustment_weight=0.4)
-            alphabet_left = prepare_alphabet(img_stone, letter_pixel_coordinates_left, img_dimensions_left, 'left')
-            alphabet_right = prepare_alphabet(img_stone, letter_pixel_coordinates_right, img_dimensions_right, 'right')
+                letter_coordinates = get_alphabet_coordinates()
+                letter_pixel_coordinates_left, img_dimensions_left = prepare_alphabet_coordinates(img_stone, letter_coordinates, 'left')
+                letter_pixel_coordinates_right, img_dimensions_right = prepare_alphabet_coordinates(img_stone, letter_coordinates, 'right')
+                if adjust_letter_spacing:
+                    letter_pixel_coordinates_left, _, _ = adjust_spacing(letter_pixel_coordinates_left, side='left', balance_adjustment_weight=0.4)
+                    letter_pixel_coordinates_right, _, _ = adjust_spacing(letter_pixel_coordinates_right, side='right', balance_adjustment_weight=0.4)
+                alphabet_left = prepare_alphabet(img_stone, letter_pixel_coordinates_left, img_dimensions_left, 'left')
+                alphabet_right = prepare_alphabet(img_stone, letter_pixel_coordinates_right, img_dimensions_right, 'right')
 
-            dimx_max = np.max([get_max_width(alphabet_left), get_max_width(alphabet_right)])
+                dimx_max = np.max([get_max_width(alphabet_left), get_max_width(alphabet_right)])
 
-            band_left, band_right, band_full, coords_border_left, coords_border_right, coords_full = make_my_band(img_stone, stone_size, dimx_max, 
-                letter_coordinates, total_columns=model.band_columns)
+                band_left, band_right, band_full, coords_border_left, coords_border_right, coords_full = make_my_band(img_stone, stone_size, dimx_max, 
+                    letter_coordinates, total_columns=model.band_columns)
 
-            # do an initial resize to get dimensions:
-            img1 = reshape_img_to_height(band_left.transpose(Image.FLIP_TOP_BOTTOM), model.band_height)
-            img2 = reshape_img_to_height(alphabet_left[0].transpose(Image.FLIP_TOP_BOTTOM), model.band_height)
-            img3 = reshape_img_to_height(alphabet_right[0].transpose(Image.FLIP_TOP_BOTTOM), model.band_height)
-            img4 = reshape_img_to_height(band_right.transpose(Image.FLIP_TOP_BOTTOM), model.band_height)
-            # get exact locations from img sizes:
-            left_start = model.band_coordinates
-            letter1_start = [left_start[0] + img1.size[0], left_start[1]]
-            letter2_start = [letter1_start[0] + img2.size[0], left_start[1]]
-            right_start = [letter2_start[0] + img3.size[0], left_start[1]]
-            if need_bg:
-                total_band_width =  img1.size[0] + img2.size[0] + img3.size[0] + img4.size[0] + int(0.5 * 0.2 * model.band_height)
-                total_band_height = int((1 + 0.5 * 0.2) * model.band_height) if model.is_raw else model.band_height
-                bg_band_coordinates = [
-                    model.band_coordinates[0] - int(0.25 * 0.2 * model.band_height), 
-                    model.band_coordinates[1] - int(0.25 * 0.2 * model.band_height)] if model.is_raw else [
-                    model.band_coordinates[0] - int(0.25 * 0.2 * model.band_height), 
-                    model.band_coordinates[1]]
-                print("Making band with dimensions ", total_band_width, total_band_height)
-                print("Placing it at ", bg_band_coordinates, " original band coordinates are ", model.band_coordinates)
-                for bg_col in band_bg_colors:
-                    url_band_bg = "models/Alcantara_{:s}.png"
-                    img_band_bg, _ = get_img(url_band_bg.format(bg_col))
-                    band_bg_current = make_band_background(img_band_bg, total_band_width, total_band_height, bg_band_coordinates, img_wallet.size)
-                    save_image(band_bg_current, model_subdir + "Alcantara_{:s}.png".format(bg_col))
-                need_bg = False
+                # do an initial resize to get dimensions:
+                img1 = reshape_img_to_height(band_left.transpose(Image.Transpose.FLIP_TOP_BOTTOM), model.band_height)
+                img2 = reshape_img_to_height(alphabet_left[0].transpose(Image.Transpose.FLIP_TOP_BOTTOM), model.band_height)
+                img3 = reshape_img_to_height(alphabet_right[0].transpose(Image.Transpose.FLIP_TOP_BOTTOM), model.band_height)
+                img4 = reshape_img_to_height(band_right.transpose(Image.Transpose.FLIP_TOP_BOTTOM), model.band_height)
+                # get exact locations from img sizes:
+                left_start = model.band_coordinates
+                letter1_start = [left_start[0] + img1.size[0], left_start[1]]
+                letter2_start = [letter1_start[0] + img2.size[0], left_start[1]]
+                right_start = [letter2_start[0] + img3.size[0], left_start[1]]
+                if need_bg:
+                    total_band_width =  img1.size[0] + img2.size[0] + img3.size[0] + img4.size[0] + int(0.5 * 0.2 * model.band_height)
+                    total_band_height = int((1 + 0.5 * 0.2) * model.band_height) if model.is_raw else model.band_height
+                    bg_band_coordinates = [
+                        model.band_coordinates[0] - int(0.25 * 0.2 * model.band_height), 
+                        model.band_coordinates[1] - int(0.25 * 0.2 * model.band_height)] if model.is_raw else [
+                        model.band_coordinates[0] - int(0.25 * 0.2 * model.band_height), 
+                        model.band_coordinates[1]]
+                    print("Making band with dimensions ", total_band_width, total_band_height)
+                    print("Placing it at ", bg_band_coordinates, " original band coordinates are ", model.band_coordinates)
+                    for bg_col in [col]: #band_bg_colors: #we only use the same color, for now
+                        url_band_bg = f"models/Alcantara_{col}.png"
+                        img_band_bg, _ = get_img(url_band_bg, linear=False)
+                        save_image(img_band_bg, f"band_test{col}.png", unlinear= False)
+                        band_bg_current = make_band_background(img_band_bg, total_band_width, total_band_height, bg_band_coordinates, img_wallet.size)
+                        save_image(band_bg_current, model_subdir + f"{model.out_name+col}_only_band.png".format(bg_col), unlinear= False)
+                        img_with_band_name = model_subdir + "/" + f"{model.out_name}{col}_with_band.png"
+                        img_wallet_with_band = copy.copy(img_wallet)
+                        img_wallet_with_band.paste(band_bg_current, (0, 0), mask=band_bg_current)
+                        save_image(img_wallet_with_band, img_with_band_name, unlinear= False)
+                    need_bg = False
 
-            full_scaled = reshape_img_to_height(band_full.transpose(Image.FLIP_TOP_BOTTOM), model.band_height, debug_halo=debug_halo)
-            full_scaled_halo = make_transparent_halo(full_scaled, left_start, size=img_wallet.size)
-            full_scaled_shadows = place_shadows(
-                  full_scaled_halo, left_start, full_scaled.size, 
-                  coords_full, stone_size, is_edge='left right', is_raw=model.is_raw)
-            full_scaled_glow = place_glows(
-                  full_scaled_shadows, glows, left_start, full_scaled.size, 
-                  coords_full, stone_size, glow_sizes, glow=model.add_glow)
-            left_scaled = reshape_img_to_height(band_left.transpose(Image.FLIP_TOP_BOTTOM), model.band_height, debug_halo=debug_halo)
-            left_scaled_halo = make_transparent_halo(left_scaled, left_start, size=img_wallet.size)
-            left_scaled_shadows = place_shadows(
-                  left_scaled_halo, left_start, left_scaled.size, 
-                  coords_border_left, stone_size, is_edge='left', is_raw=model.is_raw)
-            left_scaled_glow = place_glows(
-                  left_scaled_shadows, glows, left_start, left_scaled.size, 
-                  coords_border_left, stone_size, glow_sizes, glow=model.add_glow)
-            right_scaled = reshape_img_to_height(band_right.transpose(Image.FLIP_TOP_BOTTOM), model.band_height, debug_halo=debug_halo)
-            right_scaled_halo = make_transparent_halo(right_scaled, right_start, size=img_wallet.size)
-            right_scaled_shadows = place_shadows(
-                  right_scaled_halo, right_start, right_scaled.size, 
-                  coords_border_right, stone_size, is_edge='right', is_raw=model.is_raw)
-            right_scaled_glow = place_glows(
-                right_scaled_shadows, glows, right_start, right_scaled.size, 
-                coords_border_right, stone_size, glow_sizes, glow=model.add_glow)
-            save_image(full_scaled_glow, output_subdir + "full.png")
-            save_image(left_scaled_glow, output_subdir + "left.png")
-            save_image(right_scaled_glow, output_subdir + "right.png")
-# def place_shadows(img, offset_xy, old_img_dimensions, stone_coords, stone_size, is_edge='False'):
-            for ii in range(len(alphabet_left)):
-                letter1_scaled = reshape_img_to_height(alphabet_left[ii].transpose(Image.FLIP_TOP_BOTTOM), model.band_height, debug_halo=debug_halo)
-                letter1_scaled_halo = make_transparent_halo(letter1_scaled, letter1_start, size=img_wallet.size)
-                img_shadows_halo = place_shadows(letter1_scaled_halo, letter1_start, letter1_scaled.size, 
-                    letter_pixel_coordinates_left[ii], stone_size, is_raw=model.is_raw)
-                img_glow = place_glows(
-                    img_shadows_halo, glows, letter1_start, letter1_scaled.size, 
-                    letter_pixel_coordinates_left[ii], stone_size, glow_sizes, glow=model.add_glow)
-                save_image(img_glow, output_subdir + "l_{:02d}.png".format(ii))
-                # cv2.imwrite("img_out/l_{:02d}.png".format(ii), letter1_scaled_halo_glow)
-                letter2_scaled = reshape_img_to_height(alphabet_right[ii].transpose(Image.FLIP_TOP_BOTTOM), model.band_height, debug_halo=debug_halo)
-                letter2_scaled_halo = make_transparent_halo(letter2_scaled, letter2_start, size=img_wallet.size)
-                img_shadows_halo = place_shadows(letter2_scaled_halo, letter2_start, letter2_scaled.size, 
-                    letter_pixel_coordinates_right[ii], stone_size, is_raw=model.is_raw)
-                img_glow = place_glows(
-                    img_shadows_halo, glows, letter2_start, letter2_scaled.size,
-                    letter_pixel_coordinates_right[ii], stone_size, glow_sizes, glow=model.add_glow)
-                save_image(img_glow, output_subdir + "r_{:02d}.png".format(ii))
+                full_scaled = reshape_img_to_height(band_full.transpose(Image.Transpose.FLIP_TOP_BOTTOM), model.band_height, debug_halo=debug_halo)
+                full_scaled_halo = make_transparent_halo(full_scaled, left_start, size=img_wallet.size)
+                full_scaled_shadows = place_shadows(
+                      full_scaled_halo, left_start, full_scaled.size, 
+                      coords_full, stone_size, is_edge='left right', is_raw=model.is_raw)
+                full_scaled_glow = place_glows(
+                      full_scaled_shadows, glows, left_start, full_scaled.size, 
+                      coords_full, stone_size, glow_sizes, glow=model.add_glow)
+                left_scaled = reshape_img_to_height(band_left.transpose(Image.Transpose.FLIP_TOP_BOTTOM), model.band_height, debug_halo=debug_halo)
+                left_scaled_halo = make_transparent_halo(left_scaled, left_start, size=img_wallet.size)
+                left_scaled_shadows = place_shadows(
+                      left_scaled_halo, left_start, left_scaled.size, 
+                      coords_border_left, stone_size, is_edge='left', is_raw=model.is_raw)
+                left_scaled_glow = place_glows(
+                      left_scaled_shadows, glows, left_start, left_scaled.size, 
+                      coords_border_left, stone_size, glow_sizes, glow=model.add_glow)
+                right_scaled = reshape_img_to_height(band_right.transpose(Image.Transpose.FLIP_TOP_BOTTOM), model.band_height, debug_halo=debug_halo)
+                right_scaled_halo = make_transparent_halo(right_scaled, right_start, size=img_wallet.size)
+                right_scaled_shadows = place_shadows(
+                      right_scaled_halo, right_start, right_scaled.size, 
+                      coords_border_right, stone_size, is_edge='right', is_raw=model.is_raw)
+                right_scaled_glow = place_glows(
+                    right_scaled_shadows, glows, right_start, right_scaled.size, 
+                    coords_border_right, stone_size, glow_sizes, glow=model.add_glow)
+                save_image(full_scaled_glow, f"{output_subdir}/{model.out_name}_{stone_name}_volles_band.png")
+                # save_image(left_scaled_glow, f"{output_subdir}/{model.out_name}_{stone_name}_links_rand.png")
+                # save_image(right_scaled_glow, f"{output_subdir}/{model.out_name}_{stone_name}_rechts_rand.png")
+                # left_scaled_glow.paste(right_scaled_glow, (0, 0), mask=right_scaled_glow)
+                l_linear = np.array(left_scaled_glow).astype(float) / 255.
+                print(l_linear.min(), l_linear.max())
+                l_linear += np.array(right_scaled_glow).astype(float) / 255.
+                l_linear = np.where(l_linear > 1., 1., l_linear)
+                print(l_linear.min(), l_linear.max())
+                rand = Image.fromarray((255. * l_linear).astype(np.uint8))
+
+                #l_linear = linear_to_sRGB(l_linear)
+                save_image(rand, f"{output_subdir}/{model.out_name}_{stone_name}_rand.png")
+                # TODO: beide seiten in einem bild
+    # def place_shadows(img, offset_xy, old_img_dimensions, stone_coords, stone_size, is_edge='False'):
+                for ii in range(len(alphabet_left)):
+                    letter1_scaled = reshape_img_to_height(alphabet_left[ii].transpose(Image.Transpose.FLIP_TOP_BOTTOM), model.band_height, debug_halo=debug_halo)
+                    letter1_scaled_halo = make_transparent_halo(letter1_scaled, letter1_start, size=img_wallet.size)
+                    img_shadows_halo = place_shadows(letter1_scaled_halo, letter1_start, letter1_scaled.size, 
+                        letter_pixel_coordinates_left[ii], stone_size, is_raw=model.is_raw)
+                    img_glow = place_glows(
+                        img_shadows_halo, glows, letter1_start, letter1_scaled.size, 
+                        letter_pixel_coordinates_left[ii], stone_size, glow_sizes, glow=model.add_glow)
+                    left_letter_img_name = f"{output_subdir}/{model.out_name}_{stone_name}_links_{alphabet_strings[ii]}.png"
+                    save_image(img_glow, left_letter_img_name)
+                    # cv2.imwrite("img_out/l_{:02d}.png".format(ii), letter1_scaled_halo_glow)
+                    letter2_scaled = reshape_img_to_height(alphabet_right[ii].transpose(Image.Transpose.FLIP_TOP_BOTTOM), model.band_height, debug_halo=debug_halo)
+                    letter2_scaled_halo = make_transparent_halo(letter2_scaled, letter2_start, size=img_wallet.size)
+                    img_shadows_halo = place_shadows(letter2_scaled_halo, letter2_start, letter2_scaled.size, 
+                        letter_pixel_coordinates_right[ii], stone_size, is_raw=model.is_raw)
+                    img_glow = place_glows(
+                        img_shadows_halo, glows, letter2_start, letter2_scaled.size,
+                        letter_pixel_coordinates_right[ii], stone_size, glow_sizes, glow=model.add_glow)
+                    right_letter_img_name = f"{output_subdir}/{model.out_name}_{stone_name}_rechts_{alphabet_strings[ii]}.png"
+                    save_image(img_glow, right_letter_img_name)
+                    
     os.system('cp -R img_out ../../../sf_share/')
 
 if __name__ == "__main__":
